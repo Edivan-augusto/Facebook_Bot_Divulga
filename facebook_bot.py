@@ -1,10 +1,8 @@
-from PySide6.QtWidgets import QApplication,  QWidget, QPushButton, QVBoxLayout, QMainWindow
-from PySide6.QtCore import QThread, Signal, Slot
+from PySide6.QtWidgets import QApplication, QWidget , QPushButton, QVBoxLayout, QMainWindow
+from PySide6.QtCore import Qt
 from PySide6.QtGui import QIcon
 import sys
-from playwright.sync_api import sync_playwright, Playwright
-from time import sleep
-
+from playwright.sync_api import sync_playwright, Playwright, Error
 
 
 def browser_action():
@@ -18,7 +16,7 @@ def browser_action():
         context.storage_state(path="state.json")
         list = page.locator('.x6s0dn4')
         itens = page.locator('[aria-label="Ver grupo"]')
-        
+        page.set_default_timeout(30000)
         #itera sobre cada item dos grupos
         for i in range(itens.count()):
             #aqui vai entrar a UI porque quero a opção de seleção dos grupos a enviar
@@ -31,12 +29,16 @@ def browser_action():
                 textbox = page.locator('[role="textbox"][aria-placeholder="Crie um post público…"]')
                 texto = open("mensagem.txt" , "r", encoding="utf-8").read()
                 textbox.fill(texto)
+                with page.expect_file_chooser(timeout=5000) as fc_info:
+                    page.locator('[role="button"][aria-label="Foto/vídeo"]').click()
+                file_chooser = fc_info.value
+                file_chooser.set_files('./Video_Project.mp4')
                 page.locator('[aria-label="Postar"]').click()
                 page.locator('[role="textbox"][aria-placeholder="Crie um post público…"]').wait_for(state='hidden')
-            except(TimeoutError):
-                page.wait_for_load_state("load")
                 page.go_back()
-                page.wait_for_load_state("load")
+            except(TimeoutError, Error):            
+                page.go_back()
+
 
         browser.close()
 
@@ -48,32 +50,67 @@ class MainWindow(QMainWindow):
 
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("Facebook Posts ")
-        self.resize(600,400)
-        panel = QWidget(self);
-        panel.setObjectName('panel')
-        self.setCentralWidget(panel)
-        panel.setLayout(QVBoxLayout())
-        self.setStyleSheet('#panel{background:#FFFFFF; border-radius: 12px}')
+        self.setWindowTitle("Facebook Posts")
+        self.resize(300,150)
+        self.setStyleSheet('background-color: #1877F2; border-radius: 25px;')
 
-class ButtonHome(QPushButton):
-    
-    def __init__(self):
-        super().__init__()
-        self.start_btn = QPushButton("Iniciar", self)
-        self.start_btn.setObjectName("btnStart")
-        self.start_btn.setEnabled(True)
-        self.panel.addWidget(self.start_btn)
-        self.start_btn.clicked.connect(self.on_start)
+        central = QWidget(self)
+        self.setCentralWidget(central)
 
+        main_layout = QVBoxLayout(central)
+        main_layout.setContentsMargins(0,0,0,0)
+
+        self.setWindowIcon(QIcon('./facebook.png'))
+
+        buttons_box = QWidget()
+
+        vbox = QVBoxLayout(buttons_box)
+        vbox.setContentsMargins(0,0,0,0)
+        vbox.setSpacing(10)
+
+        btn2 = MainButton('Editar texto')
+        btn3 = MainButton('Executar')
+
+        btn3.clicked.connect(browser_action)
+
+        vbox.addWidget(btn2)
+        vbox.addWidget(btn3)
+
+
+        main_layout.addWidget(buttons_box, alignment=Qt.AlignCenter)
+
+
+class MainButton(QPushButton):
+
+    def __init__(self, text=""):
+        super().__init__(text)
+        self.setStyleSheet(""" 
+                        QPushButton {
+                            background-color: #365FCF;
+                            border-radius: 5px;
+                            color: white;
+                            border: 1px solid black;
+                        }
+                           
+                        QPushButton:hover {
+                            background-color: #4c76ff;
+                        }
+                        
+                        QPushButton:pressed {
+                        
+                            background-color: #2948a8;
+                        
+                        }
+                           
+                           """)
+        self.setFixedSize(100,30)
 
 def main():
-
     app = QApplication(sys.argv)
     window = MainWindow()
+
     window.show()
     sys.exit(app.exec())
-
 
 if __name__ == "__main__": 
     main()
